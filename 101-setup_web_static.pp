@@ -1,62 +1,88 @@
-# Set up Holberton web servers for the deployment of web_static
+# AirBnB clone web server setup and configuration
 
-$data_dirs =  [
-  '/data',
-  '/data/web_static',
-  '/data/web_static/releases',
-  '/data/web_static/releases/test',
-  '/data/web_static/shared',
-]
+# SCRIPT INCOMPLETE. NEEDS SOME MORE THINKING---
+$nginx_conf = "server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+    add_header X-Served-By ${hostname};
+    root   /var/www/html;
+    index  index.html index.htm;
+    location /hbnb_static {
+        alias /data/web_static/current;
+        index index.html index.htm;
+    }
+    location /redirect_me {
+        return 301 http://linktr.ee/firdaus_h_salim/;
+    }
+    error_page 404 /404.html;
+    location /404 {
+      root /var/www/html;
+      internal;
+    }
+}"
 
-$index_html = "\
-<html>
-  <head>
-  </head>
-  <body>
-    Hello World
-  </body>
-</html>
-"
-
-package { 'nginx': }
-
-service { 'nginx':
-  ensure     => 'running',
-  hasrestart => true,
-  require    => Package['nginx'],
+package { 'nginx':
+  ensure   => 'present',
+  provider => 'apt'
 }
 
-file { $data_dirs:
-  ensure => 'directory',
-  owner  => 'ubuntu',
-  group  => 'ubuntu',
+-> file { '/data':
+  ensure  => 'directory'
 }
 
-file { '/data/web_static/current':
-  ensure  => 'link',
-  replace => 'yes',
-  owner   => 'ubuntu',
-  group   => 'ubuntu',
-  target  => '/data/web_static/releases/test',
+-> file { '/data/web_static':
+  ensure => 'directory'
 }
 
-file { '/data/web_static/releases/test/index.html':
+-> file { '/data/web_static/releases':
+  ensure => 'directory'
+}
+
+-> file { '/data/web_static/releases/test':
+  ensure => 'directory'
+}
+
+-> file { '/data/web_static/shared':
+  ensure => 'directory'
+}
+
+-> file { '/data/web_static/releases/test/index.html':
   ensure  => 'present',
-  owner   => 'ubuntu',
-  group   => 'ubuntu',
-  content => $index_html,
+  content => "this webpage is found in data/web_static/releases/test/index.htm \n"
 }
 
-exec { 'sed':
-  command => "sed -i \
-  '/^\tlisten 80 default_server;$/i location /hbnb_static/ { alias /data/web_static/current/; }' /etc/nginx/sites-available/default",
-  path    => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-  require => Package['nginx'],
-  notify  => Service['nginx'],
+-> file { '/data/web_static/current':
+  ensure => 'link',
+  target => '/data/web_static/releases/test'
 }
 
-exec { 'ufw':
-  command => "ufw allow 'Nginx HTTP'",
-  path    => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
-  require => Package['nginx'],
+-> exec { 'chown -R ubuntu:ubuntu /data/':
+  path => '/usr/bin/:/usr/local/bin/:/bin/'
+}
+
+file { '/var/www':
+  ensure => 'directory'
+}
+
+-> file { '/var/www/html':
+  ensure => 'directory'
+}
+
+-> file { '/var/www/html/index.html':
+  ensure  => 'present',
+  content => "This is my first upload  in /var/www/index.html***\n"
+}
+
+-> file { '/var/www/html/404.html':
+  ensure  => 'present',
+  content => "Ceci n'est pas une page - Error page\n"
+}
+
+-> file { '/etc/nginx/sites-available/default':
+  ensure  => 'present',
+  content => $nginx_conf
+}
+
+-> exec { 'nginx restart':
+  path => '/etc/init.d/'
 }
